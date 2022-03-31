@@ -13,10 +13,11 @@ import javax.persistence.*;
 public class IsEmailValid {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.TABLE)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
     private String email;
     private boolean valid;
+
     @OneToOne(cascade = CascadeType.MERGE)
     @JoinColumn(name = "_user_id", referencedColumnName = "id")
     private User _user;

@@ -25,8 +25,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
-//@RequiredArgsConstructor
 public class UserService {
+    private final String URI = "https://jsonplaceholder.typicode.com/users";
+    private final HttpMethod METHOD = HttpMethod.GET;
+    private final int TEST_CALL_TIMES = 10;
+
     @Autowired
     UserRepository userRepository;
     @Autowired
@@ -40,44 +43,53 @@ public class UserService {
     @Autowired
     ModelMapper modelMapper;
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void getUsers() {
-        final String URI = "https://jsonplaceholder.typicode.com/users";
-        final HttpMethod METHOD = HttpMethod.GET;
-
+    private List<User> getUsers() throws JsonProcessingException {
         RestTemplate restTemplate = new RestTemplate();
-        //String result = restTemplate.getForObject(uri, String.class);
-        List<UserDto> users;
         ResponseEntity<String> response = restTemplate.exchange(URI, METHOD, null, String.class);
-        int statusCode = response.getStatusCodeValue();
         loggingService.logApiCall(response, URI, METHOD);
 
-        try {
-            users = objectMapper.readValue(response.getBody(), new TypeReference<List<UserDto>>() {
-            });
-            //save users
-            List<User> savedUsers = saveUsers(users);
-            saveUserEmailsValid(savedUsers);
+        List<UserDto> users = objectMapper.readValue(response.getBody(), new TypeReference<>() {
+        });
+        List<User> savedUsers = mapUsersAndSave(users);
+        saveUserEmailsValid(savedUsers);
 
-            //save user email validations
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
+        return savedUsers;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void testUsersEndpoint() throws JsonProcessingException {
+        Integer usersSize = null;
+        for (int i = 0; i < TEST_CALL_TIMES; i++) {
+            if (usersSize == null) {
+                usersSize = getUsers().size();
+            } else {
+                int currentUsersSize = getUsers().size();
+                if (currentUsersSize != usersSize) {
+                    loggingService.getLogger().error("Test " + i + " unSuccesful\n usersSize was " +
+                            currentUsersSize + " instead of " + usersSize);
+                    break;
+                }
+                loggingService.getLogger().info("Test " + i + " succesful\n----------------------------------------");
+            }
         }
+        loggingService.getLogger().info(" All " + TEST_CALL_TIMES + " Test calls were succesful");
+
+        exit();
     }
 
     private User mapUser(UserDto userDto) {
         return modelMapper.map(userDto, User.class);
     }
 
-    @Transactional()
     private void saveIsEmailValid(User user, boolean isEmailValid) {
-        IsEmailValid isEmailValidToSave = new IsEmailValid();
-        isEmailValidToSave.setValid(isEmailValid);
-        isEmailValidToSave.setEmail(user.getEmail());
-        isEmailValidToSave.set_user(user);
-        isEmailValidRepository.save(isEmailValidToSave);
+        if (!isEmailValidRepository.findBy_user_id(user.getId()).isPresent()) {
+            IsEmailValid isEmailValidToSave = new IsEmailValid();
+            isEmailValidToSave.setValid(isEmailValid);
+            isEmailValidToSave.setEmail(user.getEmail());
+            isEmailValidToSave.set_user(user);
+            isEmailValidRepository.save(isEmailValidToSave);
+        }
     }
-
 
     private boolean isEmailValid(String email) {
         Pattern p = Pattern.compile("^[a-zA-Z0-9_!#$%&’*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$");
@@ -85,17 +97,25 @@ public class UserService {
         return m.find();
     }
 
-
     private void saveUserEmailsValid(List<User> users) {
-        users.stream().forEach(u -> saveIsEmailValid(u, isEmailValid(u.getEmail())));
+        users.forEach(u -> saveIsEmailValid(u, isEmailValid(u.getEmail())));
     }
 
-    private List<User> saveUsers(List<UserDto> users) {
-        return save(users.stream().map(this::mapUser).collect(Collectors.toList()));
+    private List<User> mapUsersAndSave(List<UserDto> users) {
+        return saveUsers(users.stream().map(this::mapUser).collect(Collectors.toList()));
     }
 
     @Transactional()
-    private List<User> save(List<User> users) {
-        return userRepository.saveAll(users);
+    private List<User> saveUsers(List<User> users) {
+        for (User u : users) {
+            if (!userRepository.existsById(u.getId())) {
+                userRepository.save(u);
+            }
+        }
+        return users;
+    }
+
+    private void exit() {
+        System.exit(0);
     }
 }

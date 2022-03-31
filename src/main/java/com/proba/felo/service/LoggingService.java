@@ -16,7 +16,11 @@ public class LoggingService {
     ObjectMapper objectMapper;
 
     Logger logger = LoggerFactory.getLogger(LoggingService.class);
-    
+
+    public Logger getLogger() {
+        return logger;
+    }
+
     public void logApiCall(ResponseEntity<?> responseEntity, String URI, HttpMethod method) {
         logger.info("Api call completed. Details: " + String.format("\n" +
                         "RequestUrl: %s\nHttpMethod: %s\nResponseStatusCode: %s\nResponseBody: %s\n" +
