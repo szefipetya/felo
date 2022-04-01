@@ -13,6 +13,7 @@
 - Working postgreSQL server on port 8102
     - You may configure this to yourself in the application.properties file
 - Java 11
+- Maven cli
 
 ### Build
 
