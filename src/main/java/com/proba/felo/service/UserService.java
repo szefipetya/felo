@@ -74,7 +74,7 @@ public class UserService {
         }
         loggingService.getLogger().info(" All " + TEST_CALL_TIMES + " Test calls were succesful");
 
-        exit();
+      
     }
 
     private User mapUser(UserDto userDto) {
@@ -89,6 +89,7 @@ public class UserService {
             isEmailValidToSave.set_user(user);
             isEmailValidRepository.save(isEmailValidToSave);
         }
+
     }
 
     private boolean isEmailValid(String email) {
